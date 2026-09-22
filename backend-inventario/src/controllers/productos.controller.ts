@@ -17,7 +17,7 @@ export const getProductos = async (req: Request, res: Response) => {
 // POST /productos - Crear un nuevo producto
 export const crearProducto = async (req: Request, res: Response) => {
   try {
-    const { nombre, precio, categoria, fotoBase64 } = req.body;
+    const { nombre, precio, categoria, fotoBase64, codigoBarras } = req.body;
 
     if (!nombre || !precio || !categoria) {
       return res.status(400).json({ error: 'Nombre, precio y categoria son obligatorios' });
@@ -29,6 +29,7 @@ export const crearProducto = async (req: Request, res: Response) => {
         precio: parseFloat(precio),
         categoria,
         fotoBase64: fotoBase64 || null,
+        codigoBarras: codigoBarras || null,
       },
     });
 
@@ -43,7 +44,7 @@ export const crearProducto = async (req: Request, res: Response) => {
 export const editarProducto = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { nombre, precio, categoria, fotoBase64 } = req.body;
+    const { nombre, precio, categoria, fotoBase64, codigoBarras } = req.body;
 
     const productoActualizado = await prisma.producto.update({
       where: { id: Number(id) },
@@ -52,6 +53,7 @@ export const editarProducto = async (req: Request, res: Response) => {
         ...(precio && { precio: parseFloat(precio) }),
         ...(categoria && { categoria }),
         ...(fotoBase64 !== undefined && { fotoBase64 }),
+        ...(codigoBarras !== undefined && { codigoBarras }),
       },
     });
 
