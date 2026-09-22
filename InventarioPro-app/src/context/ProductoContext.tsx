@@ -7,6 +7,7 @@ interface ProductoContextType {
   cargando: boolean;
   obtenerProductos: () => Promise<void>;
   agregarProducto: (producto: NuevoProducto) => Promise<void>;
+  actualizarProducto: (id: number, producto: Partial<NuevoProducto>) => Promise<void>;
   eliminarProducto: (id: number) => Promise<void>;
 }
 
@@ -30,13 +31,23 @@ export const ProductoProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // POST /productos
-  // Nota: omitimos id y createdAt, tal como se vio en clase; el backend los genera.
   const agregarProducto = useCallback(async (producto: NuevoProducto) => {
     try {
       await api.post('/productos', producto);
-      await obtenerProductos(); // Refrescamos la lista tras guardar
+      await obtenerProductos();
     } catch (error) {
       console.error('Error al agregar producto:', error);
+      throw error;
+    }
+  }, [obtenerProductos]);
+
+  // PUT /productos/:id
+  const actualizarProducto = useCallback(async (id: number, producto: Partial<NuevoProducto>) => {
+    try {
+      await api.put(`/productos/${id}`, producto);
+      await obtenerProductos();
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
       throw error;
     }
   }, [obtenerProductos]);
@@ -45,7 +56,7 @@ export const ProductoProvider = ({ children }: { children: ReactNode }) => {
   const eliminarProducto = useCallback(async (id: number) => {
     try {
       await api.delete(`/productos/${id}`);
-      await obtenerProductos(); // Refrescamos la lista tras eliminar
+      await obtenerProductos();
     } catch (error) {
       console.error('Error al eliminar producto:', error);
       throw error;
@@ -54,7 +65,14 @@ export const ProductoProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ProductoContext.Provider
-      value={{ productos, cargando, obtenerProductos, agregarProducto, eliminarProducto }}
+      value={{
+        productos,
+        cargando,
+        obtenerProductos,
+        agregarProducto,
+        actualizarProducto,
+        eliminarProducto,
+      }}
     >
       {children}
     </ProductoContext.Provider>

@@ -12,22 +12,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { useProductos } from '../context/ProductoContext';
 import EscanerScreen from './EscanerScreen';
+import ConfirmModal from '../components/ConfirmModal';
 import { colors, fonts } from '../theme/theme';
+import { ProductosStackParamList } from '../types/navigation';
 
-export default function NuevoProductoScreen() {
-  const navigation = useNavigation();
-  const { agregarProducto } = useProductos();
+type EditarRouteProp = RouteProp<ProductosStackParamList, 'EditarProducto'>;
+type EditarNavProp = NativeStackNavigationProp<ProductosStackParamList, 'EditarProducto'>;
 
-  const [nombre, setNombre] = useState('');
-  const [precio, setPrecio] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [fotoBase64, setFotoBase64] = useState<string | null>(null);
-  const [codigoBarras, setCodigoBarras] = useState<string | null>(null);
+export default function EditarProductoScreen() {
+  const navigation = useNavigation<EditarNavProp>();
+  const route = useRoute<EditarRouteProp>();
+  const { producto } = route.params;
+  const { actualizarProducto, eliminarProducto } = useProductos();
+
+  const [nombre, setNombre] = useState(producto.nombre);
+  const [precio, setPrecio] = useState(producto.precio.toString());
+  const [categoria, setCategoria] = useState(producto.categoria);
+  const [fotoBase64, setFotoBase64] = useState<string | null>(producto.fotoBase64);
+  const [codigoBarras, setCodigoBarras] = useState<string | null>(producto.codigoBarras);
   const [guardando, setGuardando] = useState(false);
   const [mostrarEscaner, setMostrarEscaner] = useState(false);
+  const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
 
   const tomarFoto = async () => {
     const permiso = await ImagePicker.requestCameraPermissionsAsync();
@@ -51,15 +61,7 @@ export default function NuevoProductoScreen() {
     setMostrarEscaner(false);
   };
 
-  const limpiarFormulario = () => {
-    setNombre('');
-    setPrecio('');
-    setCategoria('');
-    setFotoBase64(null);
-    setCodigoBarras(null);
-  };
-
-  const guardarProducto = async () => {
+  const guardarCambios = async () => {
     if (!nombre.trim() || !precio.trim()) {
       Alert.alert('Campos requeridos', 'El nombre y el precio son obligatorios.');
       return;
@@ -67,20 +69,25 @@ export default function NuevoProductoScreen() {
 
     try {
       setGuardando(true);
-      await agregarProducto({
+      await actualizarProducto(producto.id, {
         nombre,
         precio: parseFloat(precio),
         categoria,
         fotoBase64,
         codigoBarras,
       });
-      limpiarFormulario();
-      navigation.navigate('Productos' as never);
+      navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el producto.');
+      Alert.alert('Error', 'No se pudo actualizar el producto.');
     } finally {
       setGuardando(false);
     }
+  };
+
+  const confirmarEliminar = async () => {
+    await eliminarProducto(producto.id);
+    setMostrarConfirmEliminar(false);
+    navigation.goBack();
   };
 
   if (mostrarEscaner) {
@@ -95,14 +102,18 @@ export default function NuevoProductoScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.titulo}>{'>'} NUEVO_REGISTRO</Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.titulo}>{'>'} EDITAR_REGISTRO</Text>
+        </View>
 
         <Text style={styles.label}>NOMBRE</Text>
         <TextInput
           style={styles.input}
           value={nombre}
           onChangeText={setNombre}
-          placeholder="ej: laptop_hp"
           placeholderTextColor={colors.placeholder}
         />
 
@@ -111,9 +122,8 @@ export default function NuevoProductoScreen() {
           style={styles.input}
           value={precio}
           onChangeText={setPrecio}
-          placeholder="ej: 750.50"
-          placeholderTextColor={colors.placeholder}
           keyboardType="decimal-pad"
+          placeholderTextColor={colors.placeholder}
         />
 
         <Text style={styles.label}>CATEGORIA</Text>
@@ -121,13 +131,12 @@ export default function NuevoProductoScreen() {
           style={styles.input}
           value={categoria}
           onChangeText={setCategoria}
-          placeholder="ej: electronica"
           placeholderTextColor={colors.placeholder}
         />
 
         <TouchableOpacity style={styles.botonSecundario} onPress={tomarFoto}>
           <Feather name="camera" size={18} color={colors.primary} />
-          <Text style={styles.botonSecundarioTexto}>CAPTURAR_FOTO</Text>
+          <Text style={styles.botonSecundarioTexto}>CAMBIAR_FOTO</Text>
         </TouchableOpacity>
 
         {fotoBase64 && (
@@ -154,15 +163,31 @@ export default function NuevoProductoScreen() {
 
         <TouchableOpacity
           style={[styles.botonGuardar, guardando && styles.botonDeshabilitado]}
-          onPress={guardarProducto}
+          onPress={guardarCambios}
           disabled={guardando}
         >
           <Feather name="save" size={18} color={colors.background} />
           <Text style={styles.botonGuardarTexto}>
-            {guardando ? 'GUARDANDO...' : 'GUARDAR_REGISTRO'}
+            {guardando ? 'GUARDANDO...' : 'GUARDAR_CAMBIOS'}
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.botonEliminar}
+          onPress={() => setMostrarConfirmEliminar(true)}
+        >
+          <Feather name="trash-2" size={18} color={colors.danger} />
+          <Text style={styles.botonEliminarTexto}>ELIMINAR_REGISTRO</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      <ConfirmModal
+        visible={mostrarConfirmEliminar}
+        titulo="ELIMINAR REGISTRO"
+        mensaje={`¿Seguro que quieres eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`}
+        onConfirmar={confirmarEliminar}
+        onCancelar={() => setMostrarConfirmEliminar(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -175,12 +200,17 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 16,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
   titulo: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     fontFamily: fonts.mono,
     color: colors.primary,
-    marginBottom: 20,
     letterSpacing: 1,
   },
   label: {
@@ -263,6 +293,24 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: fonts.mono,
+    letterSpacing: 1,
+  },
+  botonEliminar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 4,
+    padding: 14,
+    marginTop: 12,
+  },
+  botonEliminarTexto: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '600',
     fontFamily: fonts.mono,
     letterSpacing: 1,
   },
